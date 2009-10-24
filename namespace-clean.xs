@@ -1,4 +1,12 @@
 /* namespace-clean.xs */
+
+/*
+ * NOTE: you can ignore the return value of hv_store() ((void)hv_store(hv, ...))
+ *       only if you are sure that hv is not a tied hash. Otherwise, the value
+ *       stored might be leaked.
+ *       See also perldoc perlapi and hv.c in the perl distribution.
+ */
+
 #define PERL_NO_GET_CONTEXT
 #include <EXTERN.h>
 #include <perl.h>
@@ -97,7 +105,8 @@ nsc_get_functions(pTHX_ const char* const package, HV* const exclude, HV* const 
             && !(exclude && hv_has_true_value_sv(exclude, keysv)) /* not excluded */
             && !hv_exists_ent(output, keysv, 0U) ){ 
 
-            hv_store_ent(output, keysv, newRV_inc((SV*)gv), 0U);
+            assert(!SvTIED_mg((SV*)output, PERL_MAGIC_tied));
+            (void)hv_store_ent(output, keysv, newSViv(TRUE), 0U);
         }
     }
 }
@@ -116,7 +125,9 @@ nsc_get_registered_funcs(pTHX_ HV* const meta){
 
     if(!svp){
         funcs = newHV();
-        hv_stores(meta, "remove", newRV_noinc((SV*)funcs));
+
+        assert(!SvTIED_mg((SV*)meta, PERL_MAGIC_tied));
+        (void)hv_stores(meta, "remove", newRV_noinc((SV*)funcs));
     }
     else{
         assert(SvROK(*svp));
@@ -204,11 +215,13 @@ CODE:
                 I32 const len    = av_len(except) + 1;
                 I32 j;
                 for(j = 0; j < len; j++){
-                    hv_store_ent(funcs, *av_fetch(except, j, TRUE), newSV(0), 0U);
+                    assert(!SvTIED_mg((SV*)funcs, PERL_MAGIC_tied));
+                    (void)hv_store_ent(funcs, *av_fetch(except, j, TRUE), newSV(0), 0U);
                 }
             }
             else {
-                hv_store_ent(funcs, value, newSV(0), 0U);
+                assert(!SvTIED_mg((SV*)funcs, PERL_MAGIC_tied));
+                (void)hv_store_ent(funcs, value, newSV(0), 0U);
             }
         }
         else if(pv[0] == '-'){
@@ -220,7 +233,8 @@ CODE:
                 sv_2mortal((SV*)explicit);
             }
 
-            hv_store_ent(explicit, arg, newSViv(TRUE), 0U);
+            assert(!SvTIED_mg((SV*)explicit, PERL_MAGIC_tied));
+            (void)hv_store_ent(explicit, arg, newSViv(TRUE), 0U);
         }
     }
 
@@ -236,7 +250,9 @@ CODE:
 
         if(!hv_has_true_value_pvs(meta, "handler_is_installed")){
             nsc_register_scope_end_hook(aTHX_ cleanee, funcs);
-            hv_stores(meta, "handler_is_installed", newSViv(TRUE));
+
+            assert(!SvTIED_mg((SV*)funcs, PERL_MAGIC_tied));
+            (void)hv_stores(meta, "handler_is_installed", newSViv(TRUE));
         }
     }
 }
@@ -269,7 +285,8 @@ CODE:
             croak("Unrecognized option '%s' passed to namespace::clean->unimport", pv);
         }
         else{
-            hv_store_ent(exclude, arg, newSViv(1), 0U);
+            assert(!SvTIED_mg((SV*)exclude, PERL_MAGIC_tied));
+            (void)hv_store_ent(exclude, arg, newSViv(1), 0U);
             excludes++;
         }
     }
@@ -284,7 +301,8 @@ CODE:
     hv_iterinit(exclude);
     while((he = hv_iternext(exclude))){
         /* mark it as excluded */
-        hv_store_ent(funcs, hv_iterkeysv(he), newSV(0), 0U);
+        assert(!SvTIED_mg((SV*)funcs, PERL_MAGIC_tied));
+        (void)hv_store_ent(funcs, hv_iterkeysv(he), newSV(0), 0U);
     }
 }
 
