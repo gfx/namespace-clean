@@ -1,13 +1,10 @@
 #!/usr/bin/env perl
-
+use warnings;
+use strict;
+use inc::Module::Install;
 BEGIN{ # for co-developers
     require Module::Install::XSUtil;
 }
-
-use warnings;
-use strict;
-
-use inc::Module::Install;
 
 name            q{namespace-clean};
 all_from        q{lib/namespace/clean.pm};
@@ -27,4 +24,4 @@ if ($Module::Install::AUTHOR) {
     tests 't/*.t t_author/*.t';
 }
 
-WriteAll;
+WriteAll check_nmake => 0; # no need to check nmake in Win32
