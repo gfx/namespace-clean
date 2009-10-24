@@ -16,8 +16,6 @@
 #include "ppport.h"
 #endif
 
-#define KEEP_BACK_COMPAT
-
 #define NSC_setsv_to_gv(gv, sv) sv_setsv_mg((SV*)(gv), sv_2mortal(newRV_inc((SV*)(sv))))
 
 #define NSC_STORAGE_VAR "__NAMESPACE_CLEAN_STORAGE"
@@ -319,26 +317,3 @@ CODE:
     }
 }
 
-#ifdef KEEP_BACK_COMPAT
-
-HV*
-get_functions(klass, const char* package)
-CODE:
-{
-    RETVAL = newHV();
-    nsc_get_functions(aTHX_ package, NULL /* exclude */, RETVAL);
-}
-OUTPUT:
-    RETVAL
-
-HV*
-get_class_store(klass, const char* package)
-CODE:
-{
-    RETVAL = nsc_get_class_metadata(aTHX_ package);
-    SvREFCNT_inc_simple_void_NN(RETVAL);
-}
-OUTPUT:
-    RETVAL
-
-#endif
