@@ -12,3 +12,7 @@ MANIFEST*
 Debian*
 README
 namespace-clean-*
+namespace-clean.c
+*.o
+ppport.h
+*.bs
