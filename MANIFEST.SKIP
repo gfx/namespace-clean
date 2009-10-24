@@ -8,3 +8,4 @@ blib\b
 ^namespace-clean-
 ^MANIFEST.(?:SKIP|bak)$
 ^ppport\.h$
+^author/
