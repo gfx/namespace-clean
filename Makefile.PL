@@ -1,24 +1,24 @@
 #!/usr/bin/env perl
+
+BEGIN{ # for co-developers
+    require Module::Install::XSUtil;
+}
+
 use warnings;
 use strict;
 
 use inc::Module::Install;
 
 name            q{namespace-clean};
-license         q{perl};
-author          q{Robert 'phaylon'' Sedlacek <rs@474.at>};
 all_from        q{lib/namespace/clean.pm};
 
-build_requires  q{Test::More},                  '0.62';
-build_requires  q{FindBin},                     0;
+use_ppport 3.19;
+cc_warnings;
 
-requires        q{B::Hooks::EndOfScope},        '0.07';
-requires        q{Symbol},                      0;
+test_requires  q{Test::More},                  '0.62';
+test_requires  q{FindBin},                     0;
 
-auto_provides;
-auto_install;
-
-if (-e 'MANIFEST.SKIP') {
+if ($Module::Install::AUTHOR) {
 
     print "Creating README file\n";
     system 'pod2text lib/namespace/clean.pm > README';

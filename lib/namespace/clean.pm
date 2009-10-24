@@ -1,26 +1,24 @@
 package namespace::clean;
 
+use 5.008_001;
+use strict;
+use warnings;
+
+our $VERSION = '1.999_01';
+
+use XSLoader;
+XSLoader::load(__PACKAGE__, $VERSION);
+
+1;
+__END__
+
 =head1 NAME
 
 namespace::clean - Keep imports and functions out of your namespace
 
-=cut
-
-use warnings;
-use strict;
-
-use vars        qw( $VERSION $STORAGE_VAR $SCOPE_HOOK_KEY $SCOPE_EXPLICIT );
-use Symbol      qw( qualify_to_ref );
-use B::Hooks::EndOfScope;
-
 =head1 VERSION
 
-0.11
-
-=cut
-
-$VERSION         = '0.11';
-$STORAGE_VAR     = '__NAMESPACE_CLEAN_STORAGE';
+This document describes namespace::clean version 1.999_01
 
 =head1 SYNOPSIS
 
@@ -140,8 +138,6 @@ just want to remove subroutines, try L</clean_subroutines>.
 You shouldn't need to call any of these. Just C<use> the package at the
 appropriate place.
 
-=cut
-
 =head2 clean_subroutines
 
 This exposes the actual subroutine-removal logic.
@@ -153,107 +149,10 @@ subroutines B<immediately> and not wait for scope end. If you want to have this
 effect at a specific time (e.g. C<namespace::clean> acts on scope compile end)
 it is your responsibility to make sure it runs at that time.
 
-=cut
-
-my $RemoveSubs = sub {
-
-    my $cleanee = shift;
-    my $store   = shift;
-  SYMBOL:
-    for my $f (@_) {
-
-        # ignore already removed symbols
-        next SYMBOL if $store->{exclude}{ $f };
-        no strict 'refs';
-
-        local *__tmp;
-
-        # keep original value to restore non-code slots
-        {   no warnings 'uninitialized';    # fix possible unimports
-            *__tmp = *{ ${ "${cleanee}::" }{ $f } };
-            delete ${ "${cleanee}::" }{ $f };
-        }
-
-      SLOT:
-        # restore non-code slots to symbol.
-        # omit the FORMAT slot, since perl erroneously puts it into the
-        # SCALAR slot of the new glob.
-        for my $t (qw( SCALAR ARRAY HASH IO )) {
-            next SLOT unless defined *__tmp{ $t };
-            *{ "${cleanee}::$f" } = *__tmp{ $t };
-        }
-    }
-};
-
-sub clean_subroutines {
-    my ($nc, $cleanee, @subs) = @_;
-    $RemoveSubs->($cleanee, {}, @subs);
-}
-
 =head2 import
 
 Makes a snapshot of the current defined functions and installs a
 L<B::Hooks::EndOfScope> hook in the current scope to invoke the cleanups.
-
-=cut
-
-sub import {
-    my ($pragma, @args) = @_;
-
-    my (%args, $is_explicit);
-
-  ARG:
-    while (@args) {
-
-        if ($args[0] =~ /^\-/) {
-            my $key = shift @args;
-            my $value = shift @args;
-            $args{ $key } = $value;
-        }
-        else {
-            $is_explicit++;
-            last ARG;
-        }
-    }
-
-    my $cleanee = exists $args{ -cleanee } ? $args{ -cleanee } : scalar caller;
-    if ($is_explicit) {
-        on_scope_end {
-            $RemoveSubs->($cleanee, {}, @args);
-        };
-    }
-    else {
-
-        # calling class, all current functions and our storage
-        my $functions = $pragma->get_functions($cleanee);
-        my $store     = $pragma->get_class_store($cleanee);
-
-        # except parameter can be array ref or single value
-        my %except = map {( $_ => 1 )} (
-            $args{ -except }
-            ? ( ref $args{ -except } eq 'ARRAY' ? @{ $args{ -except } } : $args{ -except } )
-            : ()
-        );
-
-        # register symbols for removal, if they have a CODE entry
-        for my $f (keys %$functions) {
-            next if     $except{ $f };
-            next unless    $functions->{ $f } 
-                    and *{ $functions->{ $f } }{CODE};
-            $store->{remove}{ $f } = 1;
-        }
-
-        # register EOF handler on first call to import
-        unless ($store->{handler_is_installed}) {
-            on_scope_end {
-                $RemoveSubs->($cleanee, $store, keys %{ $store->{remove} });
-            };
-            $store->{handler_is_installed} = 1;
-        }
-
-        return 1;
-    }
-}
 
 =head2 unimport
 
@@ -262,65 +161,6 @@ This method will be called when you do a
   no namespace::clean;
 
 It will start a new section of code that defines functions to clean up.
-
-=cut
-
-sub unimport {
-    my ($pragma, %args) = @_;
-
-    # the calling class, the current functions and our storage
-    my $cleanee   = exists $args{ -cleanee } ? $args{ -cleanee } : scalar caller;
-    my $functions = $pragma->get_functions($cleanee);
-    my $store     = $pragma->get_class_store($cleanee);
-
-    # register all unknown previous functions as excluded
-    for my $f (keys %$functions) {
-        next if $store->{remove}{ $f }
-             or $store->{exclude}{ $f };
-        $store->{exclude}{ $f } = 1;
-    }
-
-    return 1;
-}
-
-=head2 get_class_store
-
-This returns a reference to a hash in a passed package containing 
-information about function names included and excluded from removal.
-
-=cut
-
-sub get_class_store {
-    my ($pragma, $class) = @_;
-    no strict 'refs';
-    return \%{ "${class}::${STORAGE_VAR}" };
-}
-
-=head2 get_functions
-
-Takes a class as argument and returns all currently defined functions
-in it as a hash reference with the function name as key and a typeglob
-reference to the symbol as value.
-
-=cut
-
-sub get_functions {
-    my ($pragma, $class) = @_;
-
-    return {
-        map  { @$_ }                                        # key => value
-        grep { *{ $_->[1] }{CODE} }                         # only functions
-        map  { [$_, qualify_to_ref( $_, $class )] }         # get globref
-        grep { $_ !~ /::$/ }                                # no packages
-        do   { no strict 'refs'; keys %{ "${class}::" } }   # symbol entries
-    };
-}
-
-=head1 BUGS
-
-C<namespace::clean> will clobber any formats that have the same name as
-a deleted sub. This is due to a bug in perl that makes it impossible to
-re-assign the FORMAT ref into a new glob.
 
 =head1 IMPLEMENTATION DETAILS
 
@@ -339,14 +179,11 @@ will be stable in future releases.
 Just for completeness sake, if you want to remove the symbol completely,
 use C<undef> instead.
 
-=head1 SEE ALSO
+=head1 AUTHORS
 
-L<B::Hooks::EndOfScope>
+Robert 'phaylon' Sedlacek E<lt>rs@474.atE<gt>
 
-=head1 AUTHOR AND COPYRIGHT
-
-Robert 'phaylon' Sedlacek C<E<lt>rs@474.atE<gt>>, with many thanks to
-Matt S Trout for the inspiration on the whole idea.
+Many thanks to Matt S Trout for the inspiration on the whole idea.
 
 =head1 LICENSE
 
@@ -354,6 +191,3 @@ This program is free software; you can redistribute it and/or modify
 it under the same terms as perl itself.
 
 =cut
-
-no warnings;
-'Danger! Laws of Thermodynamics may not apply.'
