@@ -182,7 +182,7 @@ CODE:
             if(++i == items){
                 croak("You must pass a package name to -cleanee");
             }
-            cleanee = SvPVx_nolen_const(ST(i));
+            cleanee = SvPV_nolen_const(ST(i));
 
             meta  = nsc_get_class_metadata(aTHX_ cleanee);
             funcs = nsc_get_registered_funcs(aTHX_ meta);
@@ -263,7 +263,7 @@ CODE:
             if(++i == items){
                 croak("You must pass a function name to -cleanee");
             }
-            cleanee = SvPVx_nolen_const(ST(i));
+            cleanee = SvPV_nolen_const(ST(i));
         }
         else if(pv[0] == '-'){
             croak("Unrecognized option '%s' passed to namespace::clean->unimport", pv);
