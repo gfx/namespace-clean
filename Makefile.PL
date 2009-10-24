@@ -15,7 +15,7 @@ cc_warnings;
 test_requires  q{Test::More},                  '0.62';
 test_requires  q{FindBin},                     0;
 
-if ($Module::Install::AUTHOR) {
+if (author_context) {
 
     print "Creating README file\n";
     system 'pod2text lib/namespace/clean.pm > README';
